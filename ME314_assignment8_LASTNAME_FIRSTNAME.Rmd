@@ -1,64 +1,103 @@
 ---
-title: "Exercise 8 - Unsupervised Learning - Solution"
-author: "Ken Benoit and Slava Mikhaylov"
+title: "Exercise 8 - Unsupervised Learning"
+author: "Ken Benoit and Jack Blumenau"
 output: html_document
 ---
 
 ### Exercise 8.1
 
-Consider the `USArrests` data. We will now perform hierarchical clustering on the states.
 
-```{r}
-data("USArrests", package = "datasets")  # "package" argument optional here
-set.seed(2)
+In today's assignment, we are going to look at a set of variables describing the economic characteristics of English parliamentary constituencies around 2017-2019 (the dates of the source data vary a bit in terms of year).  
+
+You can directly load the data file into R from the course website with the following command:
+
+```{r,echo=TRUE,eval=TRUE}
+econ_vars <- read.csv(url("https://raw.githubusercontent.com/lse-me314/lse-me314.github.io/master/data/const-econ-vars.csv"))
+
 ```
 
-(a) Using hierarchical clustering with complete linkage and Euclidean distance, cluster the states.
+This data file has 8 variables
 
+- `ONSConstID` - Office for National Statistics Parliamentary Constituency ID
+- `ConstituencyName` - Constituency Name
+- `HouseWageRatio` - Ratio of House Prices to Wages
+- `UnempConstRate` - Unemployment Rate
+- `UnempConstRateChange` - Unemployment Rate Change since 2010
+- `WageMedianConst` - Median Wage
+- `social_mobility_score` - [Social Mobility Index](https://researchbriefings.parliament.uk/ResearchBriefing/Summary/CBP-8400)
+- `deprivation_index_score` - [Social Deprivation Index](https://researchbriefings.parliament.uk/ResearchBriefing/Summary/CBP-7327)
 
-(b) Cut the dendrogram at a height that results in three distinct clusters. Which states belong to which clusters?
+(a) Use the `cor()` and `pairs()` functions to assess the correlations between the six economic variables in the data set.  Which two economic variables are most highly correlated with one another at the constituency level?  Which variable is least correlated with the others at the constituency level?
 
-(c) Hierarchically cluster the states using complete linkage and Euclidean distance, after scaling the variables to have standard deviation one.
+(b) Use the command `pcafit <- prcomp(econ_vars[,4:9],scale.=TRUE)` to calculate the principal components of these six economic variables.  Then examine the object `pcafit` directly and also through `summary(pcafit)`. Which variable is has the smallest (magnitude) "loading" on the first principal component?  How does this relate to your answer in Q1?
 
-(d) What effect does scaling the variables have on the hierarchical clustering obtained? In your opinion, should the variables be scaled before the inter-observation dissimilarities are computed? Provide a justification for your answer.
+(c) Extract the standard deviations of the principal components using the command `pcafit$sdev`. Use these standard deviations to calculate the proportion of variance explained by each principal component. (Recall that the variance is just the standard deviation squared!)
 
+(d) Construct screeplots using either the `type="barplot"` or the `type="lines"` options of the  `screeplot()` command.  Given this and the output of `summary(pcafit)` above, is it clear how many dimensions are needed to describe these data well?
 
+(e) Check that the signs of the loadings for PC1 for each variable in the model.  For each variable, write sentences of the form "[The ratio of home prices to wages] are [positive/negatively] correlated with the first principal component".  Do these all make sense collectively?  You could also try writing a sentence of the form: "Places that are high on the first principal component are [high/low] in the house to wage ratio, [high/low] in unemployment,..."  What does this tell us about what the first principal component is measuring?
+
+(f) Are you able to identify what PC2 is capturing?
+
+(g)  Re-do the principal components analysis without the variable that has the smallest magnitude loading on the first principal component.  Extract the first principal component from the original analysis with all six variables (using `pcafit$x[,1]`) and also from this new analysis with five variables.  Plot them against one another and check their correlation.  Explain why you find what you find.
+
+(h) Re-do the PCA from question 2 again, but this time set `scale. = FALSE`. Compare the loadings on the first principal component and comment on any differences you see. Why do these differences occur?
 
 ### Exercise 8.2
 
+Consider the `USArrests` data from the "datasets" package, which you can load with the following command: 
 
-(a) Generate a simulated data set with 20 observations in each of three classes (i.e. 60 observations total), and 50 variables.
+```{r}
+data("USArrests", package = "datasets") 
+```
 
-    **Hint: There are a number of functions in `R` that you can use to generate data. One example is the `rnorm()` function; `runif()` is another option. Be sure to add a mean shift to the observations in each class so that there are three distinct classes.**
+The data includes statistics on the number of arrests per 100,000 residents for assault, murder, and rape in each of the 50 US states in 1973. It also gives the percentage of the population living in urban areas. Explore the data using the `summary()` and `pairs()` commands to make sure you are familiar with it. You will also be using some functions that make use of random number generation in this question, so let's set the seed again:
+
+```{r}
+set.seed(2)
+```
+
+(a) Use the `kmeans()` function to perform k-means clustering on the arrests data. This function takes three main arguments:
+
+1. `x` = the data on which we would like to perform k-means clustering
+2. `centers` = a user specified parameter for the number of clusters (i.e. the value of `K`)
+3. `nstart` = a parameter that determines the number of random starts to use. For now, just set this to 20. (This will fit the algorithm 20 times from different start values, and select the best fitting one)
+
+Use the arguments above to perform k-means when `K = 3`. Which states are assigned to which clusters? Can you say anything substantive about the clusters given the information in the output?
+
+(b) Use the code below to create a map of the clusters of US states. Note that you need to assign your cluster assignments to `cluster_assignments` with something like `cluster_assignments <- your_kmeans_object$cluster` in order for this code to work.
+
+```{r, eval = FALSE}
+
+library(ggplot2)
+library(usmap)
+
+cluster_assignments <- km.out$cluster
+
+classification_df <- data.frame(state=tolower(names(cluster_assignments)),
+                                cluster=as.factor(as.numeric(cluster_assignments)))
+
+state_plot <- plot_usmap(regions="states", data=classification_df, values="cluster") + 
+  labs(title="US States",subtitle="Clusters by Arrest Rates.") + 
+  scale_colour_hue() + 
+  theme( panel.background = element_rect(color = "black", fill = "white"), legend.position="right") + 
+  guides(fill=guide_legend(title=""))
+
+state_plot
+
+```
 
 
-(b) Perform PCA on the 60 observations and plot the first two principal component score vectors. Use a different color to indicate the observations in each of the three classes. If the three classes appear separated in this plot, then continue on to part (c). If not, then return to part (a) and modify the simulation so that there is greater separation between the three classes. Do not continue to part (c) until the three classes show at least some separation in the first two principal component score vectors.
+(c) Use the function `hclust()` to perform heirarchical clustering on this data. The `hclust()` function requires the following arguments:
 
+1. `d` = this arguments requires an object created by the `dist()` function applied to the data used for clustering. `dist()` takes a numeric matrix or data.frame as an argument (here you should use the `USArrests` object), and also allows you to select a distance metric. For now, just use `method = "euclidean"`.
+2. `method` = this argument specifies which agglomeration method should be used for clustering. Select `method = "complete"` here.
 
-(c) Perform $K$-means clustering of the observations with $K = 3$. How well do the clusters that you obtained in $K$-means clustering compare to the true class labels?
+Once you have estimated the clusters, use the `plot()` function on the resulting object to plot the dendrogram.
 
-    **Hint: You can use the `table()` function in `R` to compare the true class labels to the class labels obtained by clustering. Be careful how you interpret the results: $K$-means clustering will arbitrarily number the clusters, so you cannot simply check whether the true class labels and clustering labels are the same.**
+(d) Cut the dendrogram at a height that results in three distinct clusters using the function `cutree()`. Look at the help file to work out how to use this function. Which states belong to which clusters? How many states are in each cluster?
 
+(e) How do the clusters from (d) compare to the clusters from (a)? Are the same countries clustered together using the two approaches? Note: You may find it easier to answer this question if you assign the cluster idenitifiers from each of these approaches to the `USArrests` data first.
 
-(d) Perform $K$-means clustering with $K = 2$. Describe your results.
-
-
-(e) Now perform $K$-means clustering with $K = 4$, and describe your
-results.
-
-(f) Now perform $K$-means clustering with $K = 3$ on the first two principal component score vectors, rather than on the raw data. That is, perform $K$-means clustering on the $60 \times 2$ matrix of which the first column is the first principal component score vector, and the second column is the second principal component score vector. Comment on the results.
-
-(g) Using the `scale()` function, perform $K$-means clustering with $K = 3$ on the data after scaling each variable to have standard deviation one. How do these results compare to those obtained in (b)? Explain.
-
-### Exercise 8.3 (Optional)
-
-On the textbook website, www.StatLearning.com, there is a gene expression data set (`Ch10Ex11.csv`) that consists of 40 tissue samples with measurements on 1,000 genes. The first 20 samples are from healthy patients, while the second 20 are from a diseased group.
-
-(a) Load in the data using `read.csv()`. You will need to select `header=FALSE`.
-
-
-(b) Apply hierarchical clustering to the samples using correlation-based distance, and plot the dendrogram. Do the genes separate the samples into the two groups? Do your results depend on the type of linkage used?
-
-
-(c) Your collaborator wants to know which genes differ the most across the two groups. Suggest a way to answer this question, and apply it here.
+(f) Hierarchically cluster the states again using complete linkage and Euclidean distance. However, before you run the `hclust()` function, first scale each of the variables to have standard deviation one. You can acheive this by applying the `scale()` function to `USArrests`. What effect does scaling the variables have on the hierarchical clustering obtained? In your opinion, should the variables be scaled before the inter-observation dissimilarities are computed? Provide a justification for your answer.
 
