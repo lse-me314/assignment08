@@ -1,0 +1,346 @@
+---
+title: "Exercise 7 - Resampling Methods and Model Selection - Solutions"
+author: "Ken Benoit and Jack Blumenau"
+output: html_document
+---
+
+You will need to load the core library for the course textbook. We will also be using various random number generation functions in today's seminar, so it would also be worthwhile setting the seed as shown in the code block below.
+
+```{r}
+library(ISLR)
+set.seed(12345)
+```
+
+
+## Exercise 7.1 - Leave One Out Cross Validation
+
+In this exercise, we will be using the `Weekly` dataset, which can be loaded with the following code:
+
+```{r}
+data("Weekly")
+```
+
+This data includes weekly percentage returns for the S&P 500 stock index between 1990 and 2010. To find out more about the variables included in this data, you can look at the help file, which can be accessed using `?Weekly`. We will be interested in predicting the `Direction` variable, which indicates whether the S&P 500 went up or down in a given week.
+
+(a) Start by using the `summary()` command to explore the data. In how many weeks did the market move up?
+
+```{r}
+summary(Weekly)
+```
+
+(b) Fit a logistic regression model that predicts `Direction` using `Lag1` and `Lag2`. Recall that to estimate a logistic regression, you will need to use the `glm()` function, with `family = binomial` as an argument to that function. Summarise the results. Are either of the two lag variables significant? 
+
+```{r}
+glm.fit <-  glm(Direction ~ Lag1 + Lag2, 
+                data = Weekly, 
+                family = binomial)
+summary(glm.fit)
+```
+
+(c) Use the regression that you just estimated to calculate the predicted probability of the outcome for every observation in the data. To do so, you can simply use the `predict()` function on the estimated model object, with `type = "response"`. This will produce a vector of probabilities which will be larger when an observation is more likely to have moved up rather than down, given its covariate values. For how many observations is the probability of the S&P going up greater than .5?
+
+```{r}
+pred_probs <- predict(glm.fit, type = "response")
+
+sum(pred_probs > .5)
+table(pred_probs > .5)
+
+```
+
+**The model predicts upward market movement in 1013 out of 1089 observations.**
+
+(d) Create a new vector which is equal to `"Up"` if the model predicts upward movement in the stock market and `"Down"` if the model predicts downward movement in the stock market (i.e. use the vector of probabilities you created in part (c) and code which observations are greater than .5). Use this new variable to construct a confusion matrix with the original outcome variable, `Direction`. How many false positives are there? How many false negatives are there? What is the training set error rate?
+
+N.b. Remember that, in the context of classification problems, such as the one considered here, the error rate is $\frac{1}{n}\sum_{i=1}^N Err_i$. That is, for each observation, we predict the outcome and compare it to the observed outcome for that observation. If the predicted outcome is different from the actual outcome, then $Err_i = 1$, otherwise it is equal to 0. The error-rate is then just the average of those errors across all observations.
+
+```{r}
+
+pred_outcome <- ifelse(pred_probs > .5,"Up", "Down")
+
+table(pred_outcome, Weekly$Direction)
+
+mean(pred_outcome != Weekly$Direction)
+
+
+```
+
+**There are 446 false positives and 38 false negatives. The training set error rate is 44%**
+
+(e) As we discussed in the lecture, the training set error rate may underestimate the error rate for the test set. We will now use leave-one-out cross validation to estimate the test-set error rate. In the textbook sections for this topic (particularly sections 5.3.2 and 5.3.3 in James et al.), you will see that the `cv.glm()` function can be used in order to compute the LOOCV test error estimate. Alternatively, one can compute those quantities using just the `glm()` and `predict()` functions, and a `for` loop. Although it can be more laborious to do this using a loop, it also helps to clarify what is going on in this process!
+
+Start by re-fitting the logistic regression model that you fit in answer to part (b) (predicting `Direction` using `Lag1` and `Lag2`), but here use *all observations except the first observation*. Remember, you can subset a `data.frame` by using the square brackets. So, here, you will want something like `my_data[-1,]`. How do the coefficients you estimate in this model differ from those in the model in part (b)?
+
+```{r}
+glm.fit <-  glm(Direction ~ Lag1 + Lag2, 
+                data = Weekly[-1,], 
+                family = binomial)
+
+summary(glm.fit)
+```
+
+**They are almost identical, because you are using exactly the same model and the same data except for the omission of the first observation!**
+
+(f) Use the model from (e) to predict the direction of only the first observation. You can do this by predicting that the first observation will go up if `P(Direction="Up"|Lag1, Lag2) > 0.5`. Remember that to calculate predicted probabilities (rather than predicted log-odds) you will need to add `type = "response"` as an argument to the `predict()` function. Compare your prediction to the true value of `Direction` for the first observation. Was this observation correctly classified?
+
+```{r}
+predict(glm.fit, Weekly[1,], type="response") > 0.5
+Weekly[1,]$Direction
+```
+
+**Prediction was UP, true Direction was DOWN.**
+
+(g) To estimate the LOOCV error, we need to now replicate the process you followed above for *every* observation in the dataset. Fortunately, rather than writing hundreds of lines of code, we can accomplish this using a `for` loop. Write a `for` loop that loops over from `i=1` to `i=n`, where n is the number of observations in the data set (i.e. you could use `nrow(Weekly)`). At each iteration, your loop should performs each of the following steps:
+
+    i. Fit a logistic regression model using all but the i-th observation to predict `Direction` using `Lag1` and `Lag2` (i.e. as in your answer to (e) above).
+    ii. Calculate the probability of the market moving up for the i-th observation (this requires using the same code as you used for your answer to part (f) above.). 
+    iii. Use the probability for the i-th observation in order to predict whether or not the market moves up (again, as you did in part (f)). 
+    iv. Determine whether or not an error was made in predicting the direction for the i-th observation. If an error was made, then indicate this as a 1, and otherwise indicate it as a 0. Make sure that you store these results!
+
+The code provided below can be used to help with this question:
+
+```{r, echo = TRUE, eval = FALSE}
+
+# Set up a vector in which you can store the errors for each observation
+errors <- rep(0, nrow(Weekly))
+
+# Loop over each observation in the data
+for (i in 1:nrow(Weekly)) {
+  
+  # Fit the logistic regression model
+   ## YOUR CODE GOES HERE
+   
+   # Calculate the predicted probability, and check whether this is greater than .5
+     ## YOUR CODE GOES HERE
+   
+   # Calculate the true outcome for the i-th observation
+    ## YOUR CODE GOES HERE
+   
+   # Assign the errors vector to be equal to 1 if a prediction error was made (the vector is all 0s otherwise)
+    ## YOUR CODE GOES HERE
+}
+
+# Count up the number of errors made
+
+```
+
+```{r}
+
+# Set up a vector in which you can store the errors for each observation
+errors <- rep(0, nrow(Weekly))
+
+
+# Loop over each observation in the data
+for (i in 1:nrow(Weekly)) {
+  
+  # Fit the logistic regression model
+   glm.fit <-  glm(Direction ~ Lag1 + Lag2, 
+                   data = Weekly[-i,], 
+                   family = binomial)
+   
+   # Calculate the predicted probability, and check whether this is greater than .5
+   is_up <-  predict(glm.fit, Weekly[i,], type="response") > 0.5
+   
+   # Calculate the true outcome for the i-th observation
+   is_true_up <-  Weekly[i,]$Direction == "Up"
+   
+   # Assign the errors vector to be equal to 1 if a prediction error was made (the vector is all 0s otherwise)
+   if (is_up != is_true_up) errors[i] <-  1
+}
+
+# Count up the number of errors made
+sum(errors)
+```
+
+**There are 490 errors.**
+
+(h) Take the average of the `n` numbers obtained from the loop above in order to calculate the LOOCV estimate for the test error. Comment on the results. How does this compare to the estimate of the training set error calculated in part (d)?
+
+```{r}
+mean(errors)
+```
+
+**The LOOCV estimates a test error rate of 45%. This is very similar to the training set error rate we calculated in part (d), though that will not always be the case.**
+
+## Exercise 7.2 - K-Fold Cross Validation
+
+Running the leave-one-out procedure here does not take too long because the `Weekly` dataset has only `r `nrow(Weekly)` observations, and this is a simple logistic regression model. However, often LOOCV is too computationally burdensome to be useful. In those cases, K-fold cross-validation is normally used instead. Though it is possible to code cross-validation manually, using only the functions we used above, in this case it will suffice to use some functions designed for the purpose.
+
+(a) First, load the boot library (you may need to `install.packages("boot")` first):
+
+```{r}
+
+library(boot)
+
+```
+
+(b) Now fit the same logistic regression model as in part (b) in the question above - i.e. on the whole data
+
+```{r}
+
+glm_fit <- glm(Direction ~ Lag1 + Lag2, data = Weekly, family = binomial)
+
+```
+
+(c) Now use the `cv.glm()` function from the boot package to estimate the cross-validation error. Look at the help file for this function and you will see that you need to provide 4 arguments to make the function work. i) the data for estimating the model; ii) the estimated model object from part (b) above; iii) a "cost" function, which we have copied for you below (this just tells the function that you want to do cross-validation for a logit model); and finally, iv) a value for `K`, the number of folds to use. Use this function to implement 10-fold cross validation and report the cross-validation error (this information is stored in the first element of `delta` component of the estimated model object). How does this estimate compare to the LOOCV reported in the question above?
+
+```{r}
+cost <- function(r, pi) mean(abs(r-pi)> 0.5)
+
+```
+
+```{r}
+
+cv_10_fold_logistic <-  cv.glm(Weekly, glm_fit, K= 10, cost = cost)
+cv_error_10_fold_logistic <- cv_10_fold_logistic$delta[1]
+cv_error_10_fold_logistic
+
+```
+
+**The answer is almost exactly the same as the LOOCV, but the function takes less time to complete than the for loop did!**
+
+(d) Experiment with some different values for `K` in the `cv.glm` function. How does this affect the cross-validation error?
+
+```{r}
+
+cv_5_fold_logistic <-  cv.glm(Weekly, glm_fit, K= 5, cost = cost)
+cv_error_5_fold_logistic <- cv_5_fold_logistic$delta[1]
+cv_error_5_fold_logistic
+
+cv_20_fold_logistic <-  cv.glm(Weekly, glm_fit, K= 20, cost = cost)
+cv_20_fold_logistic <- cv_20_fold_logistic$delta[1]
+cv_20_fold_logistic
+
+```
+
+**The results are essentially entirely insensitive to these choices. Usually the choice of K is determined by how long the model takes to estimate - if you have a very long-running model, then a lower value for K is normally practical.**
+
+
+## Exercise 7.3 - Lasso and ridge regression
+
+In this exercise, we will predict the number of applications (`Apps`) received by US colleges using the other variables in the `College` data set. Again, if you would like to read more about the variables in the data, just type `?College`.
+
+(b) Fit a linear model with `Apps` as the outcome, and all other variables in the data as predictors. Report the estimated coefficients from the model.
+
+```{r}
+lm.fit <-  lm(Apps ~ . , data = College)
+coef(lm.fit)
+```
+
+(c) Using the same outcome and the same predictors, fit a ridge regression model on the `College` data.  To get you started, the code below creates a matrix of predictors using the `model.matrix()` function, which makes working with `glmnet()` a little more straightforward. 
+
+```{r}
+
+library(glmnet) # Load the relevent package for estimating ridge and lasso regressions
+
+train.mat <-  model.matrix(Apps ~ . , data = College)[,-1]
+
+```
+
+To estimate the ridge regression, you will need to use the `glmnet` function from the `library(glmnet)` package. This function takes four main arguments:
+
+1. `x` - a matrix of predictor variables
+2. `y` - a vector of outcomes
+3. `alpha` - a parameter determining whether you want to run a ridge regression (`alpha = 0`) or a lasso regression (`alpha = 1`)
+4. `lambda` - the penalty parameter applied to the ridge regression
+
+For the purposes of this exercise, use `train.mat` for `x`, and the outcome from the `College` data for `y`. Set `alpha = 1` and `lambda = 1000` (a very large penalty parameter).  Report the coefficients (`coef()`) estimated by this model. How do they compare to the coefficients that you estimated using OLS in part (b) above?
+
+```{r}
+
+ridge_mod <- glmnet(train.mat, College$Apps, alpha = 0, lambda = 1000)
+coef(ridge_mod)
+
+## Presenting these nicely next to the OLS estimates
+round(data.frame(ols = coef(lm.fit), ridge = as.numeric(coef(ridge_mod))),2)
+
+```
+
+**As expected, the ridge regression shrinks the size of almost all the coefficients relative to OLS.**
+
+(d) Experiment by lowering the value of the `lambda` parameter. How does this affect the estimated coefficients? What happens when `lambda = 0`?
+
+```{r}
+
+ridge_mod <- glmnet(train.mat, College$Apps, alpha = 0, lambda = 100)
+round(data.frame(ols = coef(lm.fit), ridge = as.numeric(coef(ridge_mod))),2)
+
+ridge_mod <- glmnet(train.mat, College$Apps, alpha = 0, lambda = 0)
+round(data.frame(ols = coef(lm.fit), ridge = as.numeric(coef(ridge_mod))),2)
+
+```
+
+**As we reduce the value of lambda, the ridge coefficients get closer to the OLS coefficients. At lambda = 0, they are essentially the same (the small differences that are still present are due to small implementation differences between `lm()` and `glmnet()`).**
+
+(e) To estimate a lasso regression, you can use exactly the same code as for the ridge regression, only changing the `alpha` parameter to be equal to 1 rather than 0. Try this now, and compare the OLS coefficients to the lasso coefficients when `lambda = 10`.
+
+```{r}
+
+lasso_mod <- glmnet(train.mat, College$Apps, alpha = 1, lambda = 20)
+coef(lasso_mod)
+
+## Presenting these nicely next to the OLS estimates
+round(data.frame(ols = coef(lm.fit), lasso = as.numeric(coef(lasso_mod))),2)
+
+```
+
+**The lasso shrinks the coefficients in a similar way to the ridge regression, but here many of the coefficients are shrunk all the way to zero. This illustrates a key difference between the lasso and ridge approaches.**
+
+## Exercise 7.4 - Cross-validation for lasso and ridge regression (hard question)
+
+(a) In this question we will use the validation set approach in order to estimate the test error rate using lasso and ridge regression. First, split the data set into a training set and a validation set. You may find the `sample()` function helpful for selecting observations at random to include in the two sets.
+
+```{r}
+library(ISLR)
+
+set.seed(11)
+train.size <-  nrow(College) / 2
+train <-  sample(1:nrow(College), train.size)
+College.train <-  College[train, ]
+College.test <-  College[-train, ]
+```
+
+(b) Use least squares to estimate the model on the training set, and then report the test error obtained for the validation set. To calculate the test error, you will need to use the formula $\frac{1}{n}\sum_{i=1}^n (y_i - \hat{y_i})^2$, where $y_i$ is the observed value of the outcome (`Apps`) for observation $i$ and $\hat{y_i}$ is the fitted value for observation $i$ from the regression model.
+
+```{r}
+
+lm.fit <-  lm(Apps ~ . , data = College.train)
+lm.pred <-  predict(lm.fit, College.test)
+mean((College.test$Apps - lm.pred)^2)
+
+```
+
+**The test-set MSE for the linear model is 1026096**
+
+(c) Using the same outcome and the same predictors, fit a ridge regression model on the training data that you just created. Remember, you will have to convert the training data predictors using the `model.matrix()` function, as in part (c) of the previous question, in order for the `glmnet()` function to work. Use the `predict()` function to calculate fitted values for the test set by setting the `newx` argument to be equal to your test data. Report the test set MSE from this regression. How does it compare to the test set error you calculated in part (b)?
+
+(For the purposes of this question, set `lambda = 0.1`. Or, if you are feeling adventurous, follow the instructions on pages 253-254 of the James et. al. textbook to see how to use cross-validation for the ridge regression!)
+
+```{r}
+
+train.mat <-  model.matrix(Apps ~ . , data = College.train)[,-1]
+test.mat <-  model.matrix(Apps ~ . , data = College.test)[,-1]
+
+```
+
+
+```{r}
+
+ridge_mod <- glmnet(train.mat, College.train$Apps, alpha = 0, lambda = 0.1)
+ridge_pred <- predict(ridge_mod,  newx = test.mat)
+mean((College.test$Apps - ridge_pred)^2)
+
+```
+
+**The test-set MSE is marginally lower than OLS at 1024134**
+
+(d) Repeat the process you followed in part (c), but this time using a lasso regression (remember, a lasso is estimated by setting `alpha = 1` in `glmnet()`). Again, set `lambda = 0.1`. Report the test error obtained. How does this compare to the test set errors for the OLS and ridge models? (Again, further details for implementing the lasso model can be found on page 255 of the textbook.)
+
+**Pick $\lambda$ using College.train and report error on College.test.**
+```{r}
+
+lasso_mod <- glmnet(train.mat, College.train$Apps, alpha = 1, lambda = 0.1)
+lasso_pred <- predict(lasso_mod,  newx = test.mat)
+mean((College.test$Apps - lasso_pred)^2)
+```
+
+**Again, the test-set MSE is very marginally lower than OLS at 1023823**
