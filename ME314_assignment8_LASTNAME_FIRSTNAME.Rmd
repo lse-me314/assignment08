@@ -4,7 +4,7 @@ author: "Ken Benoit and Jack Blumenau"
 output: html_document
 ---
 
-### Exercise 8.1
+### Exercise 8.1 -- Principal Component Analysis
 
 
 In today's assignment, we are going to look at a set of variables describing the economic characteristics of English parliamentary constituencies around 2017-2019 (the dates of the source data vary a bit in terms of year).  
@@ -43,7 +43,7 @@ This data file has 8 variables
 
 (h) Re-do the PCA from question 2 again, but this time set `scale. = FALSE`. Compare the loadings on the first principal component and comment on any differences you see. Why do these differences occur?
 
-### Exercise 8.2
+### Exercise 8.2 -- K-means Clustering
 
 Consider the `USArrests` data from the "datasets" package, which you can load with the following command: 
 
@@ -63,7 +63,7 @@ set.seed(2)
 2. `centers` = a user specified parameter for the number of clusters (i.e. the value of `K`)
 3. `nstart` = a parameter that determines the number of random starts to use. For now, just set this to 20. (This will fit the algorithm 20 times from different start values, and select the best fitting one)
 
-Use the arguments above to perform k-means when `K = 3`. Which states are assigned to which clusters? Can you say anything substantive about the clusters given the information in the output?
+    Use the arguments above to perform k-means when `K = 3`. Which states are assigned to which clusters? Can you say anything substantive about the clusters given the information in the output?
 
 (b) Use the code below to create a map of the clusters of US states. Note that you need to assign your cluster assignments to `cluster_assignments` with something like `cluster_assignments <- your_kmeans_object$cluster` in order for this code to work.
 
@@ -88,12 +88,12 @@ state_plot
 ```
 
 
-(c) Use the function `hclust()` to perform heirarchical clustering on this data. The `hclust()` function requires the following arguments:
+(c) Use the function `hclust()` to perform hierarchical clustering on this data. The `hclust()` function requires the following arguments:
 
 1. `d` = this arguments requires an object created by the `dist()` function applied to the data used for clustering. `dist()` takes a numeric matrix or data.frame as an argument (here you should use the `USArrests` object), and also allows you to select a distance metric. For now, just use `method = "euclidean"`.
 2. `method` = this argument specifies which agglomeration method should be used for clustering. Select `method = "complete"` here.
 
-Once you have estimated the clusters, use the `plot()` function on the resulting object to plot the dendrogram.
+    Once you have estimated the clusters, use the `plot()` function on the resulting object to plot the dendrogram.
 
 (d) Cut the dendrogram at a height that results in three distinct clusters using the function `cutree()`. Look at the help file to work out how to use this function. Which states belong to which clusters? How many states are in each cluster?
 
